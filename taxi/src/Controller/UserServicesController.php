@@ -304,6 +304,7 @@ class UserServicesController extends AppController
      * @Param: none
      * @Return: none 
      * */
+	  #_________________________________________________________________________#
     function verifyCode() {
         $saveArray = $this->data;  
         $this->loadModel('Users');
@@ -370,7 +371,52 @@ class UserServicesController extends AppController
         echo json_encode($result);
         die;
     }
-#_________________________________________________________________________#
+	
+	 #_________________________________________________________________________#
+
+    /**
+     * @Date: 28 April 2018
+     * @Method : Change PAssword
+     * @Purpose: This function is used to verify user code
+     * @Param: none
+     * @Return: none 
+     * */
+	  #_________________________________________________________________________#
+	    function ChangePassword() {
+        $saveArray = $this->data;  
+        $this->loadModel('Users');
+		if (isset($saveArray['user_id'])  && !empty($saveArray['user_id']) && !empty($saveArray['old_password']) && !empty($saveArray['password']) && !empty($saveArray['c_password'])) {
+            $user_Exist =  $this->Users->get($saveArray['user_id']); //get data using id
+        if (!empty($user_Exist)) {
+			 $old = $user_Exist->password;
+			$newpassword = md5($saveArray['password']);
+			if($saveArray['password'] == $saveArray['c_password']){
+				if(md5($saveArray['old_password']) == $old ){
+				if($old != $newpassword ){
+				$this->Users->query()->update()->set(['password' => $newpassword])->where(['id' => $saveArray['user_id']])->execute();
+				//$this->Flash->success("Cetegories $message Successfully.");
+				 $result = array('status' => '1', 'message' => 'Password updated successfully.');
+				}else{
+					 $result = array('status' => '0', 'message' => 'New password is same as existing password.');	
+				}
+			}else{
+					 $result = array('status' => '0', 'message' => 'Invalid existing Password');	
+				}	
+			}else{
+					 $result = array('status' => '0', 'message' => 'Password and Confirm Password does not match.');	
+				}		
+			} else {
+                $result = array('status' => '0', 'message' => 'User Does not exist.');
+            }
+        } else {
+            $result = array('status' => '0', 'message' =>'Fields are required.');
+        }
+		echo json_encode($result);
+        die;
+		}
+	  
+	  
+	#_________________________________________________________________________#
 
     /**
      * @Date: 14 jan 2018

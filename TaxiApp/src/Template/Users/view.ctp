@@ -11,7 +11,7 @@ float: left;
 height: 700px;
 }
 .content-wrapper {
-  min-height: 800px !important;
+  min-height: 1000px !important;
 }
 .doc {
     width: 160px;
@@ -159,6 +159,24 @@ height: 700px;
    
 	<?php
 	}else{  echo $this->Html->image('default.jpg', ['alt' => 'vehicle_registration_doc','class'=>'doc']);
+        } ?>
+</div>
+<div class="col-lg-3 col-md-3 col-xs-6">
+<p>Police Security Doc </p>		
+<?php if(!empty($driver->police_doc)){ ?>
+	<img class="doc"  src="/taxi/webroot/img/driver_info/<?php echo $driver->police_doc; ?>" alt="Ploice Security Doc"  data-toggle="modal" data-target="#modal"/>
+   
+	<?php
+	}else{  echo $this->Html->image('default.jpg', ['alt' => 'police security doc','class'=>'doc']);
+        } ?>
+</div>
+<div class="col-lg-3 col-md-3 col-xs-6">
+<p>Social Security Doc </p>		
+<?php if(!empty($driver->social_security_doc)){ ?>
+	<img class="doc"  src="/taxi/webroot/img/driver_info/<?php echo $driver->social_security_doc; ?>" alt="VehicleRegistration Doc"  data-toggle="modal" data-target="#modal"/>
+   
+	<?php
+	}else{  echo $this->Html->image('default.jpg', ['alt' => 'social security doc','class'=>'doc']);
         } ?>
 </div>
 <?php } ?>
