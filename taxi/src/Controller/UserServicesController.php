@@ -114,6 +114,9 @@ class UserServicesController extends AppController
      * */
     function register() {
         $saveArray = $this->data;
+		  /* $result = array('status' => '1', 'message' => "Registered successfully.", 'result' => $saveArray);
+		 echo json_encode($result); 
+		die; */ 
         $saveArray['access_token'] = uniqid().rand(10000000, 99999999).time();
         $saveArray['unique_code'] = rand('1111','9999');
         $this->loadModel('Users');
@@ -166,7 +169,7 @@ class UserServicesController extends AppController
 			}
             $result = array('status' => '0', 'message' => $show_message);
         }
-        echo json_encode($result); 
+        echo json_encode($result,200); 
         die;
     }
     #_________________________________________________________________________#
@@ -182,12 +185,12 @@ class UserServicesController extends AppController
         $saveArray = $this->data;  
         $this->loadModel('Users');
         if (isset($saveArray['country_code']) && isset($saveArray['phone_number']) && isset($saveArray['password']) && !empty($saveArray['country_code']) && !empty($saveArray['phone_number']) && !empty($saveArray['password'])) {
-            $password = md5($saveArray['password']);
+            $password = md5(trim($saveArray['password']));
             $condition = [
-                'country_code' => $saveArray['country_code'],
-                'phone_number'=>$saveArray['phone_number'],
-                'user_type'=>$saveArray['user_type'],
-                'password'=> $password,
+                'country_code' =>utf8_decode(trim($saveArray['country_code'])),
+                'phone_number'=>trim($saveArray['phone_number']),
+                'user_type'=>trim($saveArray['user_type']),
+                'password'=>$password,
                 'is_active' => 'Y',
                 'is_deleted' => 'N'
             ];
@@ -203,7 +206,7 @@ class UserServicesController extends AppController
         } else {
             $result = array('status' => '0', 'message' =>'Fields are required.');
         }
-        echo json_encode($result);
+        echo json_encode($result,200);
         die;
     }
 
@@ -546,7 +549,7 @@ class UserServicesController extends AppController
             $condition = [
                 'id' => $saveArray['user_id']
             ];
-        $user_Exist =   $this->Users->find()->select(['Users.id','Users.email','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.user_type','Users.profile_pic','Users.car_number','Users.make','Users.model','Users.social_security_number','Users.license_info','Users.is_online','Users.is_approved','Users.car_capacity','Users.is_verified'])->where($condition)->first(); 
+        $user_Exist =   $this->Users->find()->select(['Users.id','Users.email','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.user_type','Users.profile_pic','Users.car_number','Users.make','Users.model','Users.social_security_number','Users.license_info','Users.is_pool','Users.is_online','Users.is_approved','Users.car_capacity','Users.is_verified'])->where($condition)->first(); 
         if (!empty($user_Exist)) {
 			if($user_Exist['user_type']=='D'){
 				$driver_details =   $this->DriverDetail->find()->select(['city','category_id','brand','model','year','color','interior_color','license_doc','license_number','vehicle_type','issued_on','expiry_date','insurance_doc','prmit_doc','vehicle_registration_doc','police_doc','social_security_doc'])->where(['user_id'=>$saveArray['user_id']])->first();
@@ -644,6 +647,9 @@ class UserServicesController extends AppController
 				->set(['profile_pic' => $filename])
 				->where($condition)
 				->execute(); */
+				if(isset($saveArray['car_capacity']) && !empty($saveArray['car_capacity'])){
+					$saveArray['available_seats']= $saveArray['car_capacity'];
+				}
 				$userData = $this->Users->patchEntity($user_Exist, $saveArray);
 				$this->Users->save($userData);  //update record
 				$saveArray['profile_pic'] = isset($saveArray['profile_pic'])?(!empty($saveArray['profile_pic'])? Router::url('/', true) . "img/profile_images/" . $saveArray['profile_pic']:""):"";
@@ -684,7 +690,7 @@ class UserServicesController extends AppController
 			$peronal_charge_per_miles = 5;
 			$plus_charge_per_miles = 6;
 			foreach($charge_ac_to_cat as $n=>$cat_carge){
-			 $fare_est = ($arr['distance_in_miles'] * $cat_carge['per_mile']);			
+			 $fare_est = ($arr['distance_in_miles'] * $cat_carge['per_mile']);			 
 			 $result[$cat_carge['category_name']] = "$".round($fare_est, 2);			 
 			}
 			$result['time_in_min'] = ceil($arr['durantion_in_min']);
@@ -831,7 +837,8 @@ class UserServicesController extends AppController
 									'mobile' => $mobile,
 									'destination_latitude' => $saveArray['dest_lat'],
 									'destination_longitude' => $saveArray['dest_lng'],
-									'destination_addresss' => $saveArray['dest_location'],								
+									'destination_addresss' => $saveArray['dest_location'],
+									'seatings' => "",										
 									'noti_to' =>"Driver",
 									'duration'=>$minutes,
 									'surcharge'=>$surcharge,
@@ -909,7 +916,7 @@ class UserServicesController extends AppController
 				if (!empty($user_Exist)) {
 						$getRecentRequest = $this->Pickup->find()->where(['user_id' => $saveArray['user_id'],'id'=>$saveArray['request_id']])->order(['id' => 'DESC'])->first(); 
 						if (!empty($getRecentRequest)) {
-						$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.dest_location','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A'])->orWhere(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status' =>'D'])->contain(['Users','Driver','Pickup'])->first();
+						$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.dest_location','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A'])->orWhere(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status' =>'D'])->contain(['Users','Driver','Pickup'])->first();
 						$query = $this->Feedback->find()->where(['driver_id'=>$getRequestStatus['driver_id']]);
 						$feedback_exist = $query->toArray();
 						$averagerating=0;
@@ -995,7 +1002,7 @@ class UserServicesController extends AppController
 				if (!empty($user_Exist)) {
 						$getRecentRequest = $this->Pickup->find()->where(['id'=>$saveArray['request_id']])->order(['id' => 'DESC'])->first(); 
 						if (!empty($getRecentRequest)) {
-						$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.driver_id' => $saveArray['user_id']])->contain(['Users','Driver','Pickup'])->first();
+						$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.driver_id' => $saveArray['user_id']])->contain(['Users','Driver','Pickup'])->first();
 						//dump($getRequestStatus);
 						if($getRequestStatus){
 							if($getRequestStatus['request_status'] == 'A'){							
@@ -1063,9 +1070,9 @@ class UserServicesController extends AppController
     function DriverRequestAction() {
         $saveArray = $this->data;
         if(isset($saveArray['request_id']) && !empty($saveArray['request_id']) && isset($saveArray['driver_id']) && !empty($saveArray['driver_id']) && isset($saveArray['request_status']) && !empty($saveArray['request_status'])) {
-           $request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Pickup.ride_status','Users.latitude','Users.longitude'])->contain(['Users'])->first();
+           $request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Pickup.seatings','Pickup.ride_status','Users.latitude','Users.longitude'])->contain(['Users'])->first();
             if (!empty($request_exist)) {               
-				$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'driver_id' => $saveArray['driver_id']])->contain(['Users','Driver','Pickup'])->first();
+				$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.available_seats','Driver.car_capacity'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'driver_id' => $saveArray['driver_id']])->contain(['Users','Driver','Pickup'])->first();
                 if (!empty($getRequestStatus)) {
 						if($getRequestStatus['request_status'] == 'D' && $getRequestStatus['declined_by'] == 'U'){
 							$result = array('status' => '0', 'message' => 'Request Declined.');
@@ -1077,7 +1084,12 @@ class UserServicesController extends AppController
 								echo json_encode($result);  die;
 							 }else{
 								$this->PickupRequest->query()->update()->set(['request_status' => 'A'])->where(['request_id' => $saveArray['request_id'], 'driver_id' => $saveArray['driver_id']])->execute();
-								$this->Users->query()->update()->set(['availability_status' => 'N'])->where(['id' => $saveArray['driver_id']])->execute();
+								if($request_exist['ride_status']=='P'){
+									$available_seats = $getRequestStatus['driver']['available_seats']-$request_exist['seatings'];
+									$this->Users->query()->update()->set(['available_seats' => $available_seats])->where(['id' => $saveArray['driver_id']])->execute();
+								}else{
+									$this->Users->query()->update()->set(['availability_status' => 'N'])->where(['id' => $saveArray['driver_id']])->execute();
+								}
 								$driver_pic = ($getRequestStatus['driver']['profile_pic'])? Router::url('/', true) . "img/profile_images/" . $getRequestStatus['driver']['profile_pic']:Router::url('/', true) . "img/user_default.png" ;
 								$arr = $this->Common->GetDrivingDistance(array('lat' => $getRequestStatus['driver']['latitude'], 'long' => $getRequestStatus['driver']['longitude']), array('lat' =>$getRequestStatus['user']['latitude'], 'long' => $getRequestStatus['user']['longitude']));
 								$minutes = round($arr['durantion_in_min']);
@@ -1171,7 +1183,7 @@ class UserServicesController extends AppController
     function PickupRequestList() {
         $saveArray = $this->data;
         if (isset($saveArray['request_id']) && !empty($saveArray['request_id'])) {
-			$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude'])->contain(['Users'])->first(); 
+			$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude'])->contain(['Users'])->first(); 
             if (!empty($request_exist)) {
 				$userDetail['category'] = $request_exist['category'];
 				$userDetail['payment_mode'] = $request_exist['payment_mode'];
@@ -1211,7 +1223,7 @@ class UserServicesController extends AppController
 				if(!empty($user_Exist)){
 					$request_exist = $this->Pickup->find()->where(['id' => $saveArray['request_id']])->first(); 
 						if (!empty($request_exist)) {
-							$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.source_location','Pickup.dest_location','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.category'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'driver_id' => $saveArray['driver_id'],'request_status'=>'A'])->contain(['Users','Driver','Pickup'])->first();
+							$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.source_location','Pickup.dest_location','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.category'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'driver_id' => $saveArray['driver_id'],'request_status'=>'A'])->contain(['Users','Driver','Pickup'])->first();
 							if($getRequestStatus){
 								if ($saveArray['request_process_status'] == 'S' || $saveArray['request_process_status'] == 'A') {
 									if($saveArray['request_process_status'] == 'S'){
@@ -1251,17 +1263,10 @@ class UserServicesController extends AppController
 									$this->Users->query()->update()->set(['availability_status' => 'Y'])->where(['id' => $saveArray['driver_id']])->execute();
 									//estimation for fare
 									$arr = $this->Common->GetDrivingDistance(array('lat' => $getRequestStatus['pickup']['source_lat'], 'long' => $getRequestStatus['pickup']['source_lng']), array('lat' => $saveArray['dest_lat'], 'long' => $saveArray['dest_lng']));
-									if($getRequestStatus['driver']['category'] =='personal'){
-										$car_carge=5;
-										$fare = ($arr['distance_in_miles'] * $car_carge);
-										$fare = round($fare, 2);
-										//"$".round($fare, 2);	
-									}else{
-										$car_carge=6;
-										$fare = ($arr['distance_in_miles'] * $car_carge);
-										$fare = round($fare, 2);
-									}
-									
+									$cat_carge = $this->Category->find()->where(['status' => 'Y','is_deleted'=>'N','id'=>$getRequestStatus['pickup']['category_id']])->first();
+									$fare_est = ($arr['distance_in_miles'] * $cat_carge['per_mile']);
+									$fare = round($fare_est, 2);
+										//"$".round($fare, 2);
 									$charge = $this->Charge->find()->where(['id' =>1])->first();
 									$surcharge = $fare * $charge['value'] /100;
 									$surcharge = round($surcharge, 2);
@@ -1271,7 +1276,7 @@ class UserServicesController extends AppController
 										'message' => 'Ride Completed', 
 										'fare' => $fare,
 										'with_surcharge'=>$surcharge,
-										'total_amount'=> $fare + $surcharge,
+										'total_amount'=> round($fare + $surcharge,2),
 										'source_location'=>$getRequestStatus['pickup']['source_location'],
 										'dest_location'=>$getRequestStatus['pickup']['dest_location'],
 										'driver_id' => $saveArray['driver_id'],
@@ -1330,10 +1335,10 @@ class UserServicesController extends AppController
 		 if(isset($saveArray['request_id']) && !empty($saveArray['request_id']) && isset($saveArray['user_id']) && !empty($saveArray['user_id']) && isset($saveArray['request_status']) && !empty($saveArray['request_status']) ) {
 			$user =	$this->Users->find()->where(['id'=>$saveArray['user_id']])->select(['Users.id','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type','Users.device_token'])->first();
 			if($user['user_type']=='U'){
-			$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id'],'Pickup.user_id'=>$saveArray['user_id']])->select(['Pickup.id','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.ride_status','Pickup.date_time','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type'])->contain(['Users'])->first();
+			$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id'],'Pickup.user_id'=>$saveArray['user_id']])->select(['Pickup.id','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.ride_status','Pickup.date_time','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type'])->contain(['Users'])->first();
 			if($request_exist){
 				if($request_exist['ride_status']== 'N'){				
-				$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.id','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type','Driver.user_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A'])->contain(['Users','Driver','Pickup'])->first();
+				$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.id','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type','Driver.user_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A'])->contain(['Users','Driver','Pickup'])->first();
 				if($getRequestStatus){
 					if($getRequestStatus['request_process_status']=='S' || $getRequestStatus['request_process_status']=='C'){
 						$result = array('status' => '1', 'message' => 'Request can not be Cancelled By User as ride is started');
@@ -1353,7 +1358,7 @@ class UserServicesController extends AppController
 				}else{
 					$result = array('status' => '0', 'message' => 'Request Is not accepted by any one driver.');	
 				}
-				}else{
+				}elseif($request_exist['ride_status']== 'S'){
 					// for schedule ride cancelation 
 					$request_date = new Time($request_exist['date_time']);
 					 $agorequest_date = strtotime(date('Y-m-d H:i:s',strtotime('-2 hours', $request_date->getTimestamp())));
@@ -1362,7 +1367,7 @@ class UserServicesController extends AppController
 						$result = array('status' => '1', 'message' => 'Requested Ride can not be Cancelled By User');
 						echo json_encode($result);die;
 					 }
-					$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.id','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type','Driver.user_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A'])->contain(['Users','Driver','Pickup'])->first();
+					$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.id','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type','Driver.user_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A'])->contain(['Users','Driver','Pickup'])->first();
 					if($getRequestStatus){
 						if($getRequestStatus['request_process_status']=='S' || $getRequestStatus['request_process_status']=='C'){
 						$result = array('status' => '1', 'message' => 'Request can not be Cancelled By User as ride is started');
@@ -1401,7 +1406,7 @@ class UserServicesController extends AppController
 				$result = array('status' => '0', 'message' => 'Request not found');	
 			}
 			}else{
-					$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.id','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type','Users.id','Users.device_token','Users.device_type'])->contain(['Users'])->first();
+					$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.id','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type','Users.id','Users.device_token','Users.device_type'])->contain(['Users'])->first();
 					if($request_exist){
 					$devicetoken[] =$request_exist['user']['device_token'];
 					$message = array('message' => 'Driver Cancel the Requested Ride','noti_to'=>"User",'noti_type'=>"CancelR");
@@ -1436,7 +1441,7 @@ class UserServicesController extends AppController
 		 if(isset($saveArray['request_id']) && !empty($saveArray['request_id']) && isset($saveArray['user_id']) && !empty($saveArray['user_id']) && isset($saveArray['cancel_reason']) && !empty($saveArray['cancel_reason'])  && isset($saveArray['driver_id']) && !empty($saveArray['driver_id'])) {
 			 $user =	$this->Users->find()->where(['id'=>$saveArray['user_id'],'user_type'=>'U'])->select(['Users.id','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type','Users.device_token'])->first();
 			if($user){
-				$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id'],'Pickup.user_id'=>$saveArray['user_id']])->select(['Pickup.id','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type'])->contain(['Users'])->first();
+				$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id'],'Pickup.user_id'=>$saveArray['user_id']])->select(['Pickup.id','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Users.user_type'])->contain(['Users'])->first();
 				if($request_exist){
 					$this->PickupRequest->query()->update()->set(['cancel_reason' => $saveArray['cancel_reason']])->where(['request_id' => $saveArray['request_id'],'driver_id'=>$saveArray['driver_id']])->execute();
 					$result = array('status' => '1', 'message' => 'Cancellation Reason added Successfully.');
@@ -1469,9 +1474,9 @@ class UserServicesController extends AppController
 		if(isset($saveArray['request_id']) && !empty($saveArray['request_id']) && isset($saveArray['user_id']) && !empty($saveArray['user_id']) && isset($saveArray['driver_id']) && !empty($saveArray['driver_id']) ){
 						$card_exist = $this->Account->find()->where(['set_default' => 'Y','user_id'=>$saveArray['user_id']])->first();	
 						if($card_exist){							
-						$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id'],'Pickup.user_id'=>$saveArray['user_id']])->select(['Pickup.id','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude'])->contain(['Users'])->first();
+						$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id'],'Pickup.user_id'=>$saveArray['user_id']])->select(['Pickup.id','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude'])->contain(['Users'])->first();
 						if($request_exist){
-							$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','PickupRequest.fare','PickupRequest.with_surcharge','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.source_location','Pickup.dest_location','Pickup.created','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A','PickupRequest.request_process_status'=>'C'])->contain(['Users','Driver','Pickup'])->first();
+							$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','PickupRequest.fare','PickupRequest.with_surcharge','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.source_location','Pickup.dest_location','Pickup.created','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'], 'PickupRequest.user_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A','PickupRequest.request_process_status'=>'C'])->contain(['Users','Driver','Pickup'])->first();
 							if($getRequestStatus){
 								$total_amount = $getRequestStatus['fare']+ $getRequestStatus['with_surcharge'];
 								$amount = (int) round($total_amount,2);			
@@ -1672,10 +1677,10 @@ class UserServicesController extends AppController
 		function feedback(){
 			$saveArray= $this->data;
 			if(isset($saveArray['request_id']) && !empty($saveArray['request_id']) && isset($saveArray['user_id']) && !empty($saveArray['user_id']) && isset($saveArray['driver_id']) && !empty($saveArray['driver_id']) && isset($saveArray['rating']) && !empty($saveArray['rating'])){				
-				$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.id','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude'])->contain(['Users'])->first();
+				$request_exist = $this->Pickup->find()->where(['Pickup.id' => $saveArray['request_id']])->select(['Pickup.id','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude'])->contain(['Users'])->first();
 				if($request_exist){
 					if (($saveArray['rating'] < 6) && ($saveArray['rating'] > 0)) {
-						$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.request_status'=>'A','PickupRequest.request_process_status'=>'C'])->contain(['Users','Driver','Pickup'])->first();
+						$getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.user_type','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number','Driver.device_token','Driver.device_type'])->where(['PickupRequest.request_id' => $saveArray['request_id'],'PickupRequest.request_status'=>'A','PickupRequest.request_process_status'=>'C'])->contain(['Users','Driver','Pickup'])->first();
 						if($getRequestStatus){
 							$feedback_exist = $this->Feedback->find()->where(['request_id' => $saveArray['request_id'],'user_id'=>$saveArray['user_id']])->first();
 							if(!$feedback_exist){
@@ -1728,7 +1733,33 @@ class UserServicesController extends AppController
 		echo json_encode($result);
 		die;
 	}
+	#_________________________________________________________________________#
 
+    /**
+     * @Date: 22 jan 2018
+     * @Method : Show pool  Driver
+     * @Purpose: This function is used to show the driver online /offline
+     * @Param: none
+     * @Return: none 
+     * */
+    #_____________________________________________________________________________#
+	
+	function showPool(){
+		$saveArray = $this->data;
+		if(isset($saveArray['driver_id']) && !empty($saveArray['driver_id']) && isset($saveArray['is_pool']) && !empty($saveArray['is_pool'])){
+			$user_Exist =   $this->Users->find()->select(['id','email','first_name','last_name','phone_number','country_code','user_type','profile_pic','latitude','longitude'])->where(['id' => $saveArray['driver_id'],'user_type'=>'D','is_verified'=>'Y'])->first();
+				if(!empty($user_Exist)){
+					$this->Users->query()->update()->set(['is_pool' => $saveArray['is_pool']])->where(['id' => $saveArray['driver_id']])->execute();					
+					$result = array('status' => '1', 'message' => 'Status Updated Successfully.','result'=>$saveArray['is_pool']);
+				}else{
+					$result = array('status' => '0', 'message' => 'Driver Not Found.');
+				}
+		}else{
+			$result = array('status' => '0', 'message' => 'All Fields Required.');
+		}
+		echo json_encode($result);
+		die;
+	}
 		
 	 #_________________________________________________________________________#
 
@@ -1746,14 +1777,14 @@ class UserServicesController extends AppController
 		 if(isset($saveArray['driver_id']) && !empty($saveArray['driver_id'])){
 			$user = $this->Users->find()->where(['Users.id' => $saveArray['driver_id'],'Users.user_type' => 'D'])->first();
 			if(!empty($user)){
-			$req = $this->PickupRequest->find()->where(['PickupRequest.driver_id' => $saveArray['driver_id']])->select(['PickupRequest.id','PickupRequest.fare','PickupRequest.with_surcharge','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Pickup.id' ,'Pickup.source_location','Pickup.dest_location' , 'Pickup.created' ])->contain(['Users','Pickup'])->order(['Pickup.id' => 'DESC']);			
-			foreach($req as $req){
-				
+			$req = $this->PickupRequest->find()->where(['PickupRequest.driver_id' => $saveArray['driver_id'],'PickupRequest.request_status'=>'A'])->select(['PickupRequest.id','PickupRequest.fare','PickupRequest.with_surcharge','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Pickup.id' ,'Pickup.source_location','Pickup.dest_location' , 'Pickup.created','PickupRequest.request_status'])->contain(['Users','Pickup'])->order(['Pickup.id' => 'DESC']);			
+			foreach($req as $req){				
 			 $old_date = strtotime($req['pickup']['created']);
 			 $new = date('M d, Y h:i A', $old_date);
 			 $record[] = ['username' => $req['user']['first_name'] . ' ' . $req['user']['last_name'] , 
 			              'user_image' => !empty($req['user']['profile_pic']) ?Router::url('/', true) . "img/profile_images/" . $req['user']['profile_pic'] :Router::url('/', true) . "img/user_default.png" ,
 						  'bill' => $req['fare']  +  $req['with_surcharge'],
+						  'request_status' => $req['request_status'],
 						  'date' => $new,
 						  'pickup_location' => $req['pickup']['source_location'],
 						   'pickup_destination' => $req['pickup']['dest_location']
@@ -2061,7 +2092,7 @@ class UserServicesController extends AppController
 			 $this->loadModel('Users');
 			$saveArray['unique_code']='';
 			if (isset($saveArray['user_id'])  && !empty($saveArray['user_id']) ) {
-			$user_Exist = $this->Users->find()->select(['id','email','first_name','last_name','phone_number','country_code','user_type'])->where(['id' => $saveArray['user_id']])->first(); 
+			$user_Exist = $this->Users->find()->where(['id' => $saveArray['user_id']])->first(); 
 			if (!empty($user_Exist)) {
 				$driverdetails_Exist = $this->DriverDetail->find()->where(['user_id' => $saveArray['user_id']])->first(); 
 				 if(empty($driverdetails_Exist)){
@@ -2113,6 +2144,10 @@ class UserServicesController extends AppController
 				->execute(); */
 				$userData = $this->DriverDetail->patchEntity($driverdetails_Exist, $saveArray);
 				$this->DriverDetail->save($userData);  //update record
+				if(isset($saveArray['car_capacity']) && !empty($_FILES['car_capacity'])){					
+					$driverData = $this->User->patchEntity($user_Exist, $driverData);
+					$this->User->save($user_Exist); //update car capacity
+				}
 				$result = array('status' => '1', 'message' => 'Profile Updated successfully.');
 			}else{
 					$result = array('status' => '0', 'message' =>'User Not Found.');
@@ -2265,14 +2300,14 @@ class UserServicesController extends AppController
    
    
    function AutoDeclineRequest(){
-	    $expirerequest = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.date_time','Pickup.decline_time','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_status !=' => 'D', 'Pickup.ride_status' =>'S','Pickup.date_time <=' => date('Y-m-d H:i:s')])->contain(['Users','Driver','Pickup'])->all();
+	    $expirerequest = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.date_time','Pickup.decline_time','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_status !=' => 'D', 'Pickup.ride_status' =>'S','Pickup.date_time <=' => date('Y-m-d H:i:s')])->contain(['Users','Driver','Pickup'])->all();
 		if($expirerequest){
 			foreach($expirerequest as $expire){
 				 $this->PickupRequest->query()->update()->set(['request_status' => 'D','declined_by' => 'D','cancel_reason'=>'cron'])->where(['PickupRequest.id' => $expire['id']])->execute();
 			}
 		}
 	    $this->PickupRequest->query()->update()->set(['PickupRequest.request_status' => 'D','PickupRequest.declined_by' => 'D','PickupRequest.cancel_reason'=>'cron'])->where(['PickupRequest.request_status !=' => 'D'])->execute();	//,'Pickup.date_time <=' => date('Y-m-d H:i:s')
-	   $getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.date_time','Pickup.decline_time','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_status !=' => 'D', 'Pickup.ride_status' =>'S','Pickup.date_time >=' => date('Y-m-d H:i:s')])->contain(['Users','Driver','Pickup'])->all(); //,'Pickup.date_time >=' => date('Y-m-d H:i:s')
+	   $getRequestStatus = $this->PickupRequest->find()->select(['PickupRequest.id','PickupRequest.user_id','PickupRequest.request_id','PickupRequest.driver_id','PickupRequest.request_status','PickupRequest.request_process_status','Pickup.category_id','Pickup.payment_mode','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.date_time','Pickup.decline_time','PickupRequest.declined_by','Users.first_name','Users.last_name','Users.device_token','Users.device_type','Users.user_type','Users.latitude','Users.longitude','Driver.first_name','Driver.last_name','Driver.country_code','Driver.phone_number','Driver.profile_pic','Driver.latitude','Driver.longitude','Driver.car_number'])->where(['PickupRequest.request_status !=' => 'D', 'Pickup.ride_status' =>'S','Pickup.date_time >=' => date('Y-m-d H:i:s')])->contain(['Users','Driver','Pickup'])->all(); //,'Pickup.date_time >=' => date('Y-m-d H:i:s')
 	   if($getRequestStatus){
 		    $request_ids = [];
 		   foreach($getRequestStatus as $n=>$request){
@@ -2291,5 +2326,199 @@ class UserServicesController extends AppController
 	   echo json_encode($result,200); //JSON_PRETTY_PRINT
 		    die;
    }
-   
+   #_________________________________________________________________________#		
+    /**
+     * @Date: 14 jan 2018
+     * @Method : Send pool Request
+     * @Purpose: This function Forget Password is used to send request to near driver
+     * @Param: none
+     * @Return: none 
+     * */
+    #_____________________________________________________________________________#
+	function SendPoolRequest() {
+			$saveArray = $this->data;
+			if (isset($saveArray['user_id'])  && !empty($saveArray['user_id']) && isset($saveArray['source_lat'])  && !empty($saveArray['source_lat']) && isset($saveArray['source_lng'])  && !empty($saveArray['source_lng']) && isset($saveArray['dest_lat'])  && !empty($saveArray['dest_lat']) && isset($saveArray['dest_lng'])  && !empty($saveArray['dest_lng']) && isset($saveArray['seatings']) && !empty($saveArray['seatings'])) { 
+				$user_Exist =   $this->Users->find()->select(['id','email','first_name','last_name','phone_number','country_code','user_type','profile_pic','latitude','longitude','device_token','device_type'])->where(['id' => $saveArray['user_id'],'user_type'=>'U'])->first();
+				if (!empty($user_Exist)) {
+				     $id = $saveArray['user_id'];
+					$latitude = $saveArray['source_lat'];
+					$longitude = $saveArray['source_lng'];
+					$seatings = $saveArray['seatings'];
+					$distance= 20;
+					$conn = ConnectionManager::get('default');			
+					$query = "SELECT id,first_name,last_name,device_token,device_type,latitude,longitude,user_type, SQRT( POW( 69.1 * (latitude - $latitude ) , 2 ) + POW( 69.1 * ( $longitude - longitude ) * COS(latitude / 57.3 ) , 2 ) ) AS distance FROM users where $id NOT IN (id) && user_type='D' && is_online='Y' && is_verified='Y' && is_Active='Y' && is_approved='Y' && availability_status='Y' && is_deleted='N' && latitude !='' && longitude != '' && is_pool = 'Y' && available_seats >= $seatings HAVING distance < $distance";	
+					$drivers_found=$conn->execute($query)->fetchAll('assoc');
+					$driver_count = count($drivers_found);
+					if($drivers_found){		
+						$saveArray['ride_status']='P';
+						$data=$this->Pickup->newEntity($saveArray);
+						$pickup = $this->Pickup->save($data);
+						if($pickup){						
+							$count =0;$total_distance=00.00;
+							$total_fare =00.00;
+							$surcharge =00.00;
+							$minutes =0;
+							if(isset($saveArray['category_id'])){		
+									$cat_carge = $this->Category->find()->where(['status' => 'Y','is_deleted'=>'N','id'=>$saveArray['category_id']])->first();
+									$arr = $this->Common->GetDrivingDistance(array('lat' => $saveArray['source_lat'], 'long' => $saveArray['source_lng']), array('lat' => $saveArray['dest_lat'], 'long' => $saveArray['dest_lng']));
+									$minutes = round($arr['durantion_in_min']);
+									//Personal , Plus ,pool [later] , Premier [later]
+										$fare_est = ($arr['distance_in_miles'] * $cat_carge['per_mile']);									
+										$fare = round($fare_est, 2);
+										$charge_data = $this->Charge->find()->where(['id' =>1])->first();
+										$surcharge = $fare * $charge_data['value'] /100;
+										$surcharge = round($surcharge, 2);	
+										$total_fare = round($fare + $surcharge,2);
+										$total_distance =round($arr['distance_in_miles'],2);
+								}
+							foreach($drivers_found as $n=>$drivers){
+								$device_token = '';
+								$request['user_id']= $saveArray['user_id'];
+								$request['driver_id']= $drivers['id'];
+								$request['request_id']= $pickup['id'];
+								$request_data= $this->PickupRequest->newEntity($request);
+								$this->PickupRequest->save($request_data);
+								//user information details
+								$username = $user_Exist['first_name'] . " " . $user_Exist['last_name'];
+								$request_id= $pickup['id'];
+								$user_image = ($user_Exist['profile_pic'])? Router::url('/', true) . "img/profile_images/" . $user_Exist['profile_pic']:Router::url('/', true) . "img/user_default.png";
+								$mobile =  $user_Exist['country_code'] . " " . $user_Exist['phone_number'];
+								$message = array(
+									'message'=>" Recieved new request ",
+									'source_latitude' => $latitude, 
+									'source_longitude' => $longitude,
+									'source_addresss'=>$saveArray['source_location'],
+									'request_id' => $request_id,
+									'image' => $user_image, 
+									'username' => $username,
+									'mobile' => $mobile,
+									'destination_latitude' => $saveArray['dest_lat'],
+									'destination_longitude' => $saveArray['dest_lng'],
+									'destination_addresss' => $saveArray['dest_location'],								
+									'seatings' => $seatings,								
+									'noti_to' =>"Driver",
+									'duration'=>$minutes,
+									'surcharge'=>$surcharge,
+									'charges'=>$total_fare,
+									'total_distance'=>$total_distance,
+									'user_id'=>$saveArray['user_id'],
+									'noti_type' =>"PR"
+								);
+								$device_token[] = $drivers['device_token'];
+								 if($drivers['device_type'] == 'A'){							 
+									$notification = $this->Common->android_send_notification($device_token,$message, $drivers['user_type']);
+								 }else{
+									$notification =  $this->Common->iphone_send_notification($device_token,$message, $drivers['user_type']);
+								 }
+								 $count++;
+							}
+						}
+					 //$result = array('status' => '1', 'message' => 'Request sent','request_id' => $pickup['id']);
+					//check the Request Status
+					//$time =  strtotime(date("m/d/Y h:i:s a", time()+10;
+					//$later_time =  strtotime(date("m/d/Y h:i:s a", time())); $later_time ==  $time)
+					 $a = 1;
+					 sleep(15);
+					 $chkReqStatus = $this->PickupRequest->find()->select(['id','request_status'])->where(['request_id' =>$pickup['id'],'request_status'=>'A'])->first();
+                    if (empty($chkReqStatus)) {
+                        $message = array('message' => 'No Driver, please retry.','noti_to' =>"User",'noti_type' =>"ND"); 
+						$device_token[]= $user_Exist['device_token'];
+						 /* if($user_Exist['device_type']=='A'){
+							$this->Common->android_send_notification($device_token, $message, $user_Exist['user_type']);
+						 }else{
+							$this->Common->iphone_send_notification($device_token,$message,$user_Exist['user_type']); 
+						 } */
+						 $this->PickupRequest->query()->update()->set(['request_status' => 'D','declined_by' => 'U'])->where(['request_id' => $pickup['id']])->execute();
+                        $result = array('status' => '1', 'message' => 'No Driver, please retry.', 'request_id' => $pickup['id']);	
+						echo json_encode($result);die;					
+                    } else {
+                        $message = array('message' => 'Request Accepted, Driver is on the way!!','noti_to' =>"User",'noti_type' =>"RA");
+						$device_token[]= $user_Exist['device_token'];
+						if($user_Exist['device_type']=='A'){
+							//$this->Common->android_send_notification($device_token, $message, $user_Exist['user_type']);
+						 }else{
+							//$this->Common->iphone_send_notification($device_token, $message, $user_Exist['user_type']); 
+						 }
+                        $result = array('status' => '1', 'message' => 'Request Accepted, Driver is on the way!!','request_id' => $pickup['id']);
+						echo json_encode($result);die;		
+                    } 
+					//End check request status section
+					}else{
+						$result = array('status' => '0', 'message' =>'No near by Taxi found, please request in few minutes.','request_id' =>'');
+						echo json_encode($result);die;
+					}
+				}else{
+					$result = array('status' => '0', 'message' =>'User Not Found.');
+				}
+			 }else{
+				$result = array('status' => '0', 'message' =>'All fields are required.');
+			}			 
+			echo json_encode($result);
+			die; 
+	}
+	#_________________________________________________________________________#		
+    /**
+     * @Date: 11 may 2018
+     * @Method : Driver Ongoing Ride
+     * @Purpose: This function Driver Ongoing Ride for drivers
+     * @Param: none
+     * @Return: none 
+     * */
+    #_____________________________________________________________________________#
+	
+	function DriverOngoingRide() {
+		$saveArray = $this->data;$record=[];
+		if(isset($saveArray['user_id'])  && !empty($saveArray['user_id'])){
+			$user_Exist =   $this->Users->find()->select(['id','email','first_name','last_name','phone_number','country_code','user_type','profile_pic','latitude','longitude','device_token','device_type'])->where(['id' => $saveArray['user_id'],'user_type'=>'D'])->first();
+				if (!empty($user_Exist)) {
+					$request = $this->PickupRequest->find()->where(['PickupRequest.driver_id' => $saveArray['user_id'],'PickupRequest.request_status'=>'A','PickupRequest.request_process_status !='=>'C'])->select(['PickupRequest.id','PickupRequest.fare','PickupRequest.with_surcharge','PickupRequest.request_status','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Pickup.id','Pickup.user_id','Pickup.source_location','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.dest_location' , 'Pickup.created','Pickup.category_id','Pickup.seatings' ])->contain(['Users','Pickup'])->order(['Pickup.id' => 'DESC']);
+					if($request){
+					foreach($request as $req){
+						    $category_id = ($req['pickup']['category_id'])?$req['pickup']['category_id']:1;
+							$cat_carge = $this->Category->find()->where(['status' => 'Y','is_deleted'=>'N','id'=>$category_id])->first();
+							$arr = $this->Common->GetDrivingDistance(array('lat' => $req['pickup']['source_lat'], 'long' => $req['pickup']['source_lng']), array('lat' => $req['pickup']['dest_lat'], 'long' => $req['pickup']['dest_lng']));
+							$minutes = round($arr['durantion_in_min']);
+							//Personal , Plus ,pool [later] , Premier [later]
+							$fare_est = ($arr['distance_in_miles'] * $cat_carge['per_mile']);						
+							$fare = round($fare_est, 2);
+							$charge_data = $this->Charge->find()->where(['id' =>1])->first();
+							$surcharge = $fare * $charge_data['value'] /100;
+							$surcharge = round($surcharge, 2);	
+							$total_fare = round($fare + $surcharge,2);
+							$total_distance =round($arr['distance_in_miles'],2);
+							$old_date = strtotime($req['pickup']['created']);
+							$new = date('M d, Y h:i A', $old_date);
+							$mobile =  $user_Exist['country_code'] . " " . $user_Exist['phone_number'];
+							$record[] = [
+								  'request_id' => $req['pickup']['id'],
+								  'user_id' => $req['pickup']['user_id'],
+								  'username' => $req['user']['first_name'] . ' ' . $req['user']['last_name'] , 
+								  'user_image' => !empty($req['user']['profile_pic']) ?Router::url('/', true) . "img/profile_images/" . $req['user']['profile_pic'] :Router::url('/', true) . "img/user_default.png" ,
+								  'mobile'=>$mobile,
+								  'bill' => $req['fare']  +  $req['with_surcharge'],
+								  'date' => $new,
+								  'duration'=>$minutes,
+								  'surcharge'=>$surcharge,
+								  'charges'=>$total_fare,
+								  'total_distance'=>$total_distance,
+								  'source_latitude' =>$req['pickup']['source_lat'], 
+								  'source_longitude' => $req['pickup']['source_lng'],
+								  'source_addresss'=>$req['pickup']['source_location'],
+								  'destination_latitude' => $req['pickup']['dest_lat'],
+								  'destination_longitude' =>$req['pickup']['dest_lng'],
+								  'destination_addresss' => $req['pickup']['dest_location'],
+								  'seatings' => ($req['pickup']['seatings'])?$req['pickup']['seatings']:''
+								];
+						}
+					}
+					$result = ['status' => '1' , 'message' => 'Driver Ongoing Rides' , 'result' => $record];
+				}else{
+					$result = array('status' => '0', 'message' =>'User Not Found.');
+				}
+			}else{
+				$result = array('status' => '0', 'message' =>'All fields are required.');
+			}			 
+			echo json_encode($result);
+			die; 
+	}
 }
