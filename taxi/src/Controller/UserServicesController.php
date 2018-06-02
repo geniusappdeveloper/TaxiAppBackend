@@ -430,15 +430,61 @@ class UserServicesController extends AppController
      * */
 
     function GetDeviceToken() {
-        $saveArray = $this->data;  
+        $saveArray = $this->data;  $resultdata=[];$distance =[];$array=[];
         $this->loadModel('Users');
+		 $value ='false';
         if (isset($saveArray['user_id'])  && !empty($saveArray['user_id'])) {
             $user_Exist =  $this->Users->get($saveArray['user_id']); //get data using id
         if (!empty($user_Exist)) {
                 unset($saveArray['user_id']);
                 $result = $this->Users->patchEntity($user_Exist, $saveArray);
                 $this->Users->save($result);  //update record
-                $result = array('status' => '1', 'message' => 'Device token updated successfully.');
+				 if($user_Exist['user_type']=='D' && $user_Exist['is_pool']=='Y'){
+					$request = $this->PickupRequest->find()->where(['PickupRequest.driver_id' => $user_Exist['id'],'PickupRequest.request_status'=>'A','PickupRequest.request_process_status !='=>'C'])->select(['PickupRequest.id','PickupRequest.fare','PickupRequest.with_surcharge','PickupRequest.request_status','PickupRequest.request_process_status','Users.first_name','Users.last_name','Users.phone_number','Users.country_code','Users.profile_pic','Users.latitude','Users.longitude','Pickup.id','Pickup.user_id','Pickup.source_location','Pickup.source_lat','Pickup.source_lng','Pickup.dest_lat','Pickup.dest_lng','Pickup.dest_location' , 'Pickup.created','Pickup.category_id','Pickup.seatings'])->contain(['Users','Pickup'])->order(['PickupRequest.id' => 'ASC']);
+					$count = $this->PickupRequest->find()->where(['PickupRequest.driver_id' => $user_Exist['id'],'PickupRequest.request_status'=>'A','PickupRequest.request_process_status !='=>'C'])->contain(['Users','Pickup'])->count();
+					if($request && $count>1){
+						foreach($request as $n=>$req){
+							$get_driverdistance = $this->Common->GetDrivingDistance(array('lat' => $req['pickup']['source_lat'], 'long' => $req['pickup']['source_lng']), array('lat' => $user_Exist['latitude'], 'long' => $user_Exist['longitude']));
+							$distance[$n] = round($get_driverdistance['distance_in_miles'],2);
+							$req['distance']=round($get_driverdistance['distance_in_miles'],2);
+							$resultdata[] = $req ;
+							//$array[] = $req['id'];
+						}
+					}
+				
+					if($resultdata){
+						
+						array_multisort($distance, SORT_ASC, $resultdata);
+						if($resultdata){
+							foreach($resultdata as $data){
+								$array[] = $data['id'];
+							}
+							$ids = implode(',',$array);
+							
+						}
+						//dump($ids); dump($user_Exist['priority_order']);
+						if(array_intersect(explode(',',$ids),explode(',',$user_Exist['priority_order'])) == explode(',',$user_Exist['priority_order']))  {			//dump($ids); dump($user_Exist['priority_order']);
+								 //dump('SAME');	
+								$value ='false';
+						}else{
+												
+							$message = array(
+									'message'=>"New Pool request ",
+									'noti_type' =>"PoolR"
+								);
+							$device_token[] = $user_Exist['device_token'];
+							 if($user_Exist['device_type'] == 'A'){							 
+								$notification = $this->Common->android_send_notification($device_token,$message, $user_Exist['user_type']);
+							 }else{
+								$notification =  $this->Common->iphone_send_notification($device_token,$message, $user_Exist['user_type']);
+							 }
+							 $value ='false';
+							 $this->Users->query()->update()->set(['priority_order' => $ids])->where(['id' => $user_Exist['id']])->execute();
+						}
+							
+					}
+				} 
+                $result = array('status' => '1', 'message' => 'Device token updated successfully.','result'=>$value);
             } else {
                 $result = array('status' => '0', 'message' => 'User Does not exist.');
             }
@@ -2482,6 +2528,7 @@ class UserServicesController extends AppController
 						    $category_id = ($req['pickup']['category_id'])?$req['pickup']['category_id']:1;
 							$cat_carge = $this->Category->find()->where(['status' => 'Y','is_deleted'=>'N','id'=>$category_id])->first();
 							$arr = $this->Common->GetDrivingDistance(array('lat' => $req['pickup']['source_lat'], 'long' => $req['pickup']['source_lng']), array('lat' => $req['pickup']['dest_lat'], 'long' => $req['pickup']['dest_lng']));
+							$get_driverdistance = $this->Common->GetDrivingDistance(array('lat' => $req['pickup']['source_lat'], 'long' => $req['pickup']['source_lng']), array('lat' => $user_Exist['latitude'], 'long' => $user_Exist['longitude']));
 							$minutes = round($arr['durantion_in_min']);
 							//Personal , Plus ,pool [later] , Premier [later]
 							$fare_est = ($arr['distance_in_miles'] * $cat_carge['per_mile']);						
@@ -2502,6 +2549,7 @@ class UserServicesController extends AppController
 								$show_text="";
 							}
 							$record[] = [
+								  'pickuprequest_id' => $req['id'],
 								  'request_id' => $req['pickup']['id'],
 								  'user_id' => $req['pickup']['user_id'],
 								  'username' => $req['user']['first_name'] . ' ' . $req['user']['last_name'] , 
@@ -2522,10 +2570,21 @@ class UserServicesController extends AppController
 								  'destination_latitude' => $req['pickup']['dest_lat'],
 								  'destination_longitude' =>$req['pickup']['dest_lng'],
 								  'destination_addresss' => $req['pickup']['dest_location'],
-								  'seatings' => ($req['pickup']['seatings'])?$req['pickup']['seatings']:''
+								  'seatings' => ($req['pickup']['seatings'])?$req['pickup']['seatings']:'',
+								  'driver_distance'=>round($get_driverdistance['distance_in_miles'],2)
 								];
 						}
 					}
+					if($record){
+						$driver_distance=[];
+						foreach ($record as $key => $row)
+						{
+							$driver_distance[$key] = $row['driver_distance'];
+						}
+						array_multisort($driver_distance, SORT_ASC, $record);
+						
+					}
+					
 					$result = ['status' => '1' , 'message' => 'Driver Ongoing Rides' , 'result' => $record];
 				}else{
 					$result = array('status' => '0', 'message' =>'User Not Found.');
@@ -2536,4 +2595,7 @@ class UserServicesController extends AppController
 			echo json_encode($result);
 			die; 
 	}
+	
+	
+	
 }
